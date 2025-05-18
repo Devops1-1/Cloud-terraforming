@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  ACR_NAME: aksregistryapp
+  ACR_NAME: aksregistryapp1
   IMAGE_NAME: myapp
 
 jobs:
