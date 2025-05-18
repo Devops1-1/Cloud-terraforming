@@ -1,0 +1,126 @@
+trigger:
+- main
+
+variables:
+  ACR_DOCKER_CONNECTION: aksregistryapp1-docker        # Docker Registry service connection name
+  AZURE_SUBSCRIPTION: myapp                            # Azure RM service connection name
+  ACR_LOGIN_SERVER: aksregistryapp1.azurecr.io
+  IMAGE_FRONTEND_NAME: frontend
+  IMAGE_BACKEND_NAME: backend
+  K8S_NAMESPACE: default
+  AKS_CLUSTER_NAME: aks-cluster
+  AKS_RESOURCE_GROUP: aks-rg
+
+stages:
+
+- stage: Build
+  displayName: 'Build and Test'
+  jobs:
+  - job: BuildTest
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+
+    - checkout: self
+
+    - task: Docker@2
+      displayName: 'Build frontend Docker image'
+      inputs:
+        containerRegistry: '$(ACR_DOCKER_CONNECTION)'
+        repository: '$(ACR_LOGIN_SERVER)/$(IMAGE_FRONTEND_NAME)'
+        command: build
+        Dockerfile: 'frontend/Dockerfile'
+        tags: |
+          $(Build.BuildId)
+
+    - task: Docker@2
+      displayName: 'Build backend Docker image'
+      inputs:
+        containerRegistry: '$(ACR_DOCKER_CONNECTION)'
+        repository: '$(ACR_LOGIN_SERVER)/$(IMAGE_BACKEND_NAME)'
+        command: build
+        Dockerfile: 'backend/Dockerfile'
+        tags: |
+          $(Build.BuildId)
+
+    - script: |
+        echo "Running frontend tests"
+        cd frontend
+        npm install
+        npm test
+      displayName: 'Run frontend tests'
+
+    - script: |
+        echo "Running backend tests"
+        cd backend
+        npm install
+        npm test
+      displayName: 'Run backend tests'
+
+- stage: Push
+  dependsOn: Build
+  displayName: 'Push Docker images to ACR'
+  jobs:
+  - job: PushImages
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+
+    - task: Docker@2
+      displayName: 'Login to ACR'
+      inputs:
+        command: login
+        containerRegistry: '$(ACR_DOCKER_CONNECTION)'
+
+    - task: Docker@2
+      displayName: 'Push frontend image'
+      inputs:
+        containerRegistry: '$(ACR_DOCKER_CONNECTION)'
+        repository: '$(ACR_LOGIN_SERVER)/$(IMAGE_FRONTEND_NAME)'
+        command: push
+        tags: |
+          $(Build.BuildId)
+
+    - task: Docker@2
+      displayName: 'Push backend image'
+      inputs:
+        containerRegistry: '$(ACR_DOCKER_CONNECTION)'
+        repository: '$(ACR_LOGIN_SERVER)/$(IMAGE_BACKEND_NAME)'
+        command: push
+        tags: |
+          $(Build.BuildId)
+
+- stage: Deploy
+  dependsOn: Push
+  displayName: 'Deploy to AKS'
+  jobs:
+  - deployment: DeployToAKS
+    environment: 'aks-prod'
+    pool:
+      vmImage: 'ubuntu-latest'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
+          - task: AzureCLI@2
+            displayName: 'Set kubectl context'
+            inputs:
+              azureSubscription: '$(AZURE_SUBSCRIPTION)'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az aks get-credentials --resource-group $(AKS_RESOURCE_GROUP) --name $(AKS_CLUSTER_NAME) --overwrite-existing
+
+          - script: |
+              echo "Update frontend image tag in manifest"
+              sed -i "s|image: .*frontend:.*|image: $(ACR_LOGIN_SERVER)/$(IMAGE_FRONTEND_NAME):$(Build.BuildId)|" k8s/frontend-deployment.yaml
+
+              echo "Update backend image tag in manifest"
+              sed -i "s|image: .*backend:.*|image: $(ACR_LOGIN_SERVER)/$(IMAGE_BACKEND_NAME):$(Build.BuildId)|" k8s/backend-deployment.yaml
+            displayName: 'Update Kubernetes manifests with new image tags'
+
+          - script: |
+              kubectl apply -f k8s/frontend-deployment.yaml -n $(K8S_NAMESPACE)
+              kubectl apply -f k8s/backend-deployment.yaml -n $(K8S_NAMESPACE)
+            displayName: 'Deploy updated manifests to AKS'
