@@ -35,5 +35,7 @@ jobs:
         az aks get-credentials --resource-group aks-rg --name aks-cluster --overwrite-existing
     - name: Deploy to AKS
       run: |
+        kubectl get deployment ${{ env.IMAGE_NAME }} && \
         kubectl set image deployment/${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}=${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest --record || \
         kubectl create deployment ${{ env.IMAGE_NAME }} --image=${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest
+
