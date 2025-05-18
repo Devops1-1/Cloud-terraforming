@@ -32,7 +32,7 @@ jobs:
         docker push $LOGIN_SERVER/${{ env.IMAGE_NAME }}:latest
     - name: Get AKS Credentials
       run: |
-        az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
+        az aks get-credentials --resource-group aks-rg --name aks-cluster --overwrite-existing
     - name: Deploy to AKS
       run: |
         kubectl set image deployment/${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}=${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest --record || \
