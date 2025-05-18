@@ -22,6 +22,8 @@ jobs:
     - uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Login to Azure Container Registry
+      run: az acr login --name ${{ secrets.ACR_NAME }}
     - name: Build and Push Docker image to ACR
       run: |
         LOGIN_SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer --output tsv)
