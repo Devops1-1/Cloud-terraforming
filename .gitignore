@@ -19,8 +19,6 @@ pip-log.txt
 .dockerignore
 
 # Kubernetes configs (optional if you're generating them in CI)
-*.yaml
-*.yml
 
 # Terraform (if used locally)
 .terraform/

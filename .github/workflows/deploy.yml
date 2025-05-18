@@ -1,0 +1,40 @@
+name: Build and Deploy to AKS
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR_NAME: aksregistryapp1
+  IMAGE_NAME: myapp
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Login to Azure Container Registry
+      run: az acr login --name ${{ secrets.ACR_NAME }}
+    - name: Build and Push Docker image to ACR
+      run: |
+        LOGIN_SERVER=$(az acr show --name ${{ env.ACR_NAME }} --query loginServer --output tsv)
+        echo "Login server: $LOGIN_SERVER"
+        docker build -t $LOGIN_SERVER/${{ env.IMAGE_NAME }}:latest .
+        docker push $LOGIN_SERVER/${{ env.IMAGE_NAME }}:latest
+    - name: Get AKS Credentials
+      run: |
+        az aks get-credentials --resource-group aks-rg --name aks-cluster --overwrite-existing
+    - name: Deploy to AKS
+      run: |
+        kubectl get deployment ${{ env.IMAGE_NAME }} && \
+        kubectl set image deployment/${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}=${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest --record || \
+        kubectl create deployment myapp --image=aksregistryapp1.azurecr.io/myapp:latest
