@@ -37,5 +37,7 @@ jobs:
       run: |
         kubectl get deployment ${{ env.IMAGE_NAME }} && \
         kubectl set image deployment/${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}=${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest --record || \
-        kubectl create deployment ${{ env.IMAGE_NAME }} --image=${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest
+        kubectl create deployment myapp --image=aksregistryapp1.azurecr.io/myapp:latest
+
+        
 
