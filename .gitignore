@@ -1,0 +1,47 @@
+           # Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environment
+venv/
+env/
+ENV/
+*.egg-info/
+.eggs/
+pip-log.txt
+
+# Docker
+*.tar
+*.log
+.dockerignore
+
+# Kubernetes configs (optional if you're generating them in CI)
+*.yaml
+*.yml
+
+# Terraform (if used locally)
+.terraform/
+*.tfstate
+*.tfstate.backup
+crash.log
+*.tfvars
+
+# Python environments
+.Python
+.pytest_cache/
+.coverage
+.cache
+
+# VSCode
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# GitHub Actions
+.github/workflows/*.log
+.github/workflows/*.bak

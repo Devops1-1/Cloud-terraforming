@@ -1,0 +1,43 @@
+name: Build and Deploy to AKS
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: myapp
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Set ACR Login Server
+      id: acr
+      run: |
+        echo "##[set-output name=loginServer;]${{ secrets.ACR_NAME }}.azurecr.io"
+
+    - name: Build and Push Docker image to ACR
+      run: |
+        az acr login --name ${{ secrets.ACR_NAME }}
+        docker build -t ${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest .
+        docker push ${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest
+
+    - name: Get AKS Credentials
+      run: |
+        az aks get-credentials --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} --name ${{ secrets.AKS_CLUSTER_NAME }} --overwrite-existing
+
+    - name: Deploy to AKS
+      run: |
+        kubectl set image deployment/${{ env.IMAGE_NAME }} ${{ env.IMAGE_NAME }}=${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest --record || \
+        kubectl create deployment ${{ env.IMAGE_NAME }} --image=${{ steps.acr.outputs.loginServer }}/${{ env.IMAGE_NAME }}:latest
